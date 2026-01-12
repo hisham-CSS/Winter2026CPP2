@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Linq.Expressions;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -97,6 +99,7 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
     {
         cc = GetComponent<CharacterController>();
 
+
         CalculateJumpVariables();
     }
 
@@ -108,6 +111,24 @@ public class PlayerController : MonoBehaviour, InputSystem_Actions.IPlayerAction
 
     void CalculateJumpVariables()
     {
+
+        try
+        {
+            if (timeToJumpApex <= 0)
+                throw new System.ArgumentOutOfRangeException("timeToJumpApex must be greater than zero.");
+
+            if (jumpHeight <= 0)
+                throw new System.ArgumentOutOfRangeException("jumpHeight must be greater than zero.");
+        }
+        catch (System.Exception e)
+        {
+            UnityEngine.Debug.LogError(e.Message);
+            timeToJumpApex = 0.4f;
+            jumpHeight = 2f;
+        }
+        
+
+
         gravity = -(2 * jumpHeight) / Mathf.Pow(timeToJumpApex, 2);
         initalJumpVelocity = Mathf.Abs(gravity) * timeToJumpApex;
     }
