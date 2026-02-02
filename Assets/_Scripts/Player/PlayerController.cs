@@ -1,19 +1,30 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEditor;
+using System;
+using UnityEditor.Experimental.GraphView;
 
 public class PlayerController : MonoBehaviour
 { 
     CharacterController cc;
+    Animator anim;
+    Camera mainCamera;
 
     [Header("Jump Settiings")]
     [SerializeField] private float jumpHeight = 2f;
     [SerializeField] private float timeToJumpApex = 0.4f;
+
+    [Header("Movement Settings")]
+    [SerializeField] private float initSpeed = 0.5f;
+    [SerializeField] private float maxSpeed = 7.0f;
+    [SerializeField] private float acceleration = 3.0f;
 
     private float gravity;
     private float initalJumpVelocity;
 
     private Vector2 moveInput = Vector2.zero;
     private Vector3 velocity = Vector3.zero;
+    private float currentSpeed = 0.0f;
     private bool jumpPressed = false;
 
     private LayerMask stairsLayer;
@@ -24,11 +35,12 @@ public class PlayerController : MonoBehaviour
         InputManager.Instance.OnMoveEvent += OnMove;
         InputManager.Instance.OnJumpEvent += OnJump;
     }
-    void OnDisable()
-    {
-        InputManager.Instance.OnMoveEvent -= OnMove;
-        InputManager.Instance.OnJumpEvent -= OnJump;
-    }
+
+    //void OnDisable()
+    //{
+    //    InputManager.Instance.OnMoveEvent -= OnMove;
+    //    InputManager.Instance.OnJumpEvent -= OnJump;
+    //}
 
     void OnMove(Vector2 input) => moveInput = input;
     void OnJump(bool pressed) => jumpPressed = pressed;
@@ -38,9 +50,12 @@ public class PlayerController : MonoBehaviour
     void Start()
     {
         cc = GetComponent<CharacterController>();
+        anim = GetComponentInChildren<Animator>();
+
         CalculateJumpVariables();
 
         stairsLayer = LayerMask.GetMask("Stairs");
+        mainCamera = Camera.main;
     }
 
     //this triggers when a value is changed in the inspector
@@ -86,15 +101,38 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        UpdateCharacterVelocity();
-
+        Vector3 projectedMoveDirection = ProjectedMoveDirection();
+        UpdateCharacterVelocity(projectedMoveDirection);
+        UpdateCharacterRotation(projectedMoveDirection);
+        
         cc.Move(velocity * Time.fixedDeltaTime);
+        anim.SetFloat("speed", currentSpeed / maxSpeed);
     }
 
-    void UpdateCharacterVelocity()
+    #region Movement Helpers
+    private Vector3 ProjectedMoveDirection()
     {
-        velocity.x = moveInput.x * 5f;
-        velocity.z = moveInput.y * 5f;
+        Vector3 cameraFwd = mainCamera.transform.forward;
+        Vector3 cameraRight = mainCamera.transform.right;
+
+        cameraFwd.y = 0;
+        cameraRight.y = 0;
+
+        cameraFwd.Normalize();
+        cameraRight.Normalize();
+
+        return cameraFwd * moveInput.y + cameraRight * moveInput.x;
+    }
+
+    void UpdateCharacterVelocity(Vector3 projectedMoveDirection)
+    {
+        if (moveInput == Vector2.zero) currentSpeed = 0f;
+        else if (currentSpeed == 0.0f) currentSpeed = initSpeed;
+        else currentSpeed = Mathf.MoveTowards(currentSpeed, maxSpeed, acceleration * Time.fixedDeltaTime);
+
+
+        velocity.x = projectedMoveDirection.x * currentSpeed;
+        velocity.z = projectedMoveDirection.z * currentSpeed;
 
         if (cc.isGrounded)
         {
@@ -109,6 +147,15 @@ public class PlayerController : MonoBehaviour
             velocity.y += gravity * Time.fixedDeltaTime;
         }
     }
+    private void UpdateCharacterRotation(Vector3 projectedMoveDirection)
+    {
+        if (moveInput != Vector2.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(projectedMoveDirection);
+            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, 0.2f);
+        }
+    }
+    #endregion
 
     private void OnTriggerEnter(Collider collision)
     {

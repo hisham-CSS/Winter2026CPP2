@@ -22,8 +22,12 @@ public class InputManager : Singleton<InputManager>, InputSystem_Actions.IPlayer
     void OnDisable() 
     { 
         input.Disable();
-        input.Dispose();
     }
+
+    //void OnDestroy()
+    //{
+    //    input.Dispose();
+    //}
 
     public void OnMove(InputAction.CallbackContext context)
     {
