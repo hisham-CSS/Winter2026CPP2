@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -7,6 +8,7 @@ public class InputManager : Singleton<InputManager>, InputSystem_Actions.IPlayer
 
     public event System.Action<Vector2> OnMoveEvent;
     public event System.Action<bool> OnJumpEvent;
+    public event System.Action<bool> OnInteractEvent;
 
     void Awake() 
     { 
@@ -52,7 +54,7 @@ public class InputManager : Singleton<InputManager>, InputSystem_Actions.IPlayer
 
     public void OnInteract(InputAction.CallbackContext context)
     {
-        //throw new System.NotImplementedException();
+        OnInteractEvent?.Invoke(context.ReadValueAsButton());
     }
 
     public void OnCrouch(InputAction.CallbackContext context)

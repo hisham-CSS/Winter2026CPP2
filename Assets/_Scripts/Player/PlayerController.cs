@@ -7,8 +7,13 @@ using UnityEditor.Experimental.GraphView;
 public class PlayerController : MonoBehaviour
 { 
     CharacterController cc;
+    Collider col;
     Animator anim;
     Camera mainCamera;
+    WeaponBase curWeapon = null;
+    IInteract interactableObject = null;
+
+    public GameObject interactImage;
 
     [Header("Jump Settiings")]
     [SerializeField] private float jumpHeight = 2f;
@@ -18,6 +23,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float initSpeed = 0.5f;
     [SerializeField] private float maxSpeed = 7.0f;
     [SerializeField] private float acceleration = 3.0f;
+
+    [Header("Weapon Settings")]
+    [SerializeField] private Transform weaponAttachPoint;
+    public Transform WeaponAttachPoint => weaponAttachPoint;
+    public Collider Collider => col;
 
     private float gravity;
     private float initalJumpVelocity;
@@ -34,6 +44,7 @@ public class PlayerController : MonoBehaviour
     {
         InputManager.Instance.OnMoveEvent += OnMove;
         InputManager.Instance.OnJumpEvent += OnJump;
+        InputManager.Instance.OnInteractEvent += OnInteract;
     }
 
     //void OnDisable()
@@ -44,12 +55,34 @@ public class PlayerController : MonoBehaviour
 
     void OnMove(Vector2 input) => moveInput = input;
     void OnJump(bool pressed) => jumpPressed = pressed;
+    void OnInteract(bool pressed)
+    {
+        if (interactableObject != null && pressed)
+        {
+            WeaponBase weapon = interactableObject as WeaponBase;
+            if (curWeapon != null && weapon != null) return;
+
+            if (weapon != null && curWeapon == null)
+                curWeapon = weapon;
+
+
+            interactableObject.Interact(this);
+            return;
+        }
+
+        if (pressed && curWeapon != null)
+        {
+            curWeapon.Drop(col);
+            curWeapon = null;
+        }
+    }
     #endregion
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         cc = GetComponent<CharacterController>();
+        col = GetComponent<Collider>();
         anim = GetComponentInChildren<Animator>();
 
         CalculateJumpVariables();
@@ -87,6 +120,8 @@ public class PlayerController : MonoBehaviour
 
     private void Update()
     {
+        CheckInteractionUI();
+
         Ray newRay = new Ray(transform.position, transform.forward);
         RaycastHit hitInfo;
 
@@ -96,6 +131,14 @@ public class PlayerController : MonoBehaviour
         {
             Debug.Log("Stairs detected: " + hitInfo.collider.gameObject.name);
         }
+    }
+
+    private void CheckInteractionUI()
+    {
+        if (interactableObject != null && interactImage.activeSelf == false)
+            interactImage.SetActive(true);
+        else if (interactableObject == null && interactImage.activeSelf == true)
+            interactImage.SetActive(false);
     }
 
     // Update is called once per frame
@@ -159,11 +202,24 @@ public class PlayerController : MonoBehaviour
 
     private void OnTriggerEnter(Collider collision)
     {
-        //Debug.Log("Collision Detected with " + collision.gameObject.name);
+        IInteract interactable = collision.GetComponent<IInteract>();
+        if (interactable != null)
+        {
+            interactableObject = interactable;
+        }
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        IInteract interactable = other.GetComponent<IInteract>();
+        if (interactable != null && interactableObject.Equals(interactable))
+        {
+            interactableObject = null;
+        }
     }
 
     void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        //Debug.Log("Controller hit " + hit.gameObject.name);
+        
     }
 }
